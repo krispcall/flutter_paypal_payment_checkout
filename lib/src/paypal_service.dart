@@ -50,25 +50,105 @@ class PaypalServices {
     }
   }
 
-  Future<Map> createPaypalPayment(
-    transactions,
+  getApprovalURL(
     accessToken,
   ) async {
     String domain = sandboxMode
-        ? "https://api.sandbox.paypal.com"
+        ? "https://api-m.sandbox.paypal.com"
         : "https://api.paypal.com";
 
     try {
-      final response = await Dio().post('$domain/v1/payments/payment',
-          data: jsonEncode(transactions),
-          options: Options(
-            headers: {
-              'Authorization': 'Bearer $accessToken',
-              'Content-Type': 'application/json'
-            },
-          ));
+      final response = await Dio().post(
+        '$domain/v1/billing-agreements/agreement-tokens',
+        data: jsonEncode({
+          "description": "Billing Agreement",
+          "shipping_address": {
+            "line1": "PO Box 9999",
+            "city": "Walnut",
+            "state": "California",
+            "postal_code": "91789",
+            "country_code": "US",
+            "recipient_name": "John Doe"
+          },
+          "payer": {"payment_method": "Paypal"},
+          "plan": {
+            "type": "MERCHANT_INITIATED_BILLING",
+            "merchant_preferences": {
+              "return_url": "https://example.com/return",
+              "cancel_url": "https://example.com/cancel",
+              "notify_url": "https://example.com/notify",
+              "accepted_pymt_type": "INSTANT",
+              "skip_shipping_address": false,
+              "immutable_shipping_address": true
+            }
+          }
+        }),
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+            'Content-Type': 'application/json'
+          },
+        ),
+      );
+
+      final Map dump = response.data;
+      print(dump);
+
+      String tokenId = "";
+      String executeUrl = "";
+      String approvalUrl = "";
+      if (dump.containsKey("token_id")) {
+        tokenId = dump["token_id"];
+        if (dump["links"] != null && dump["links"].length > 0) {
+          List links = dump["links"];
+          final item = links.firstWhere((o) => o["rel"] == "approval_url",
+              orElse: () => null);
+          if (item != null) {
+            approvalUrl = item["href"];
+          }
+          final item1 =
+              links.firstWhere((o) => o["rel"] == "self", orElse: () => null);
+          if (item1 != null) {
+            executeUrl = item1["href"];
+          }
+          return {
+            "token_id": tokenId,
+            "executeUrl": executeUrl,
+            "approvalUrl": approvalUrl
+          };
+        }
+      }
+      return {};
+    } on DioException catch (e) {
+      return {
+        'error': true,
+        'message': "Payment Failed.",
+        'data': e.response?.data,
+      };
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map> createPaypalPayment({
+    String executeUrl = "",
+    String accessToken = "",
+    Map payload = const {},
+  }) async {
+    try {
+      final response = await Dio().post(
+        executeUrl,
+        data: payload,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+            'Content-Type': 'application/json'
+          },
+        ),
+      );
 
       final body = response.data;
+      print(body);
       if (body["links"] != null && body["links"].length > 0) {
         List links = body["links"];
 

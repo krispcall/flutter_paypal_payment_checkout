@@ -34,6 +34,7 @@ class PaypalCheckoutViewState extends State<PaypalCheckoutView> {
   String? checkoutUrl;
   String navUrl = '';
   String executeUrl = '';
+  String tokenId = "";
   String accessToken = '';
   bool loading = true;
   bool pageloading = true;
@@ -41,19 +42,14 @@ class PaypalCheckoutViewState extends State<PaypalCheckoutView> {
   late PaypalServices services;
   int pressed = 0;
   double progress = 0;
-  final String returnURL =
-      'https://www.youtube.com/channel/UC9a1yj1xV2zeyiFPZ1gGYGw';
-  final String cancelURL = 'https://www.facebook.com/tharwat.samy.9';
+  final String returnURL = 'https://example.com/return';
+  final String cancelURL = 'https://example.com/cancel';
 
   late InAppWebViewController webView;
 
-  Map getOrderParams() {
+  Map getTokenMap(String tokenId) {
     Map<String, dynamic> temp = {
-      "intent": "sale",
-      "payer": {"payment_method": "paypal"},
-      "transactions": widget.transactions,
-      "note_to_payer": widget.note,
-      "redirect_urls": {"return_url": returnURL, "cancel_url": cancelURL}
+      "token_id": tokenId,
     };
     return temp;
   }
@@ -73,17 +69,12 @@ class PaypalCheckoutViewState extends State<PaypalCheckoutView> {
 
         if (getToken['token'] != null) {
           accessToken = getToken['token'];
-          final body = getOrderParams();
-          final res = await services.createPaypalPayment(body, accessToken);
-
-          if (res["approvalUrl"] != null) {
-            setState(() {
-              checkoutUrl = res["approvalUrl"];
-              executeUrl = res["executeUrl"];
-            });
-          } else {
-            widget.onError(res);
-          }
+          final dump = await services.getApprovalURL(accessToken);
+          print(dump);
+          checkoutUrl = dump["approvalUrl"];
+          executeUrl = dump["executeUrl"];
+          tokenId = dump["token_id"];
+          setState(() {});
         } else {
           widget.onError("${getToken['message']}");
         }
@@ -112,8 +103,13 @@ class PaypalCheckoutViewState extends State<PaypalCheckoutView> {
                 final url = navigationAction.request.url;
 
                 if (url.toString().contains(returnURL)) {
-                  exceutePayment(url, context);
-                  return NavigationActionPolicy.CANCEL;
+                  final body = getTokenMap(tokenId);
+                  final res = await services.createPaypalPayment(
+                    executeUrl: executeUrl,
+                    payload: body,
+                    accessToken: accessToken,
+                  );
+                  return NavigationActionPolicy.ALLOW;
                 }
                 if (url.toString().contains(cancelURL)) {
                   return NavigationActionPolicy.CANCEL;
