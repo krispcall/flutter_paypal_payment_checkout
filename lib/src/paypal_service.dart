@@ -7,6 +7,7 @@ import 'dart:convert' as convert;
 
 class PaypalServices {
   final String clientId, secretKey;
+
   final bool sandboxMode;
   PaypalServices({
     required this.clientId,
@@ -74,9 +75,9 @@ class PaypalServices {
           "plan": {
             "type": "MERCHANT_INITIATED_BILLING",
             "merchant_preferences": {
-              "return_url": "https://example.com/return",
-              "cancel_url": "https://example.com/cancel",
-              "notify_url": "https://example.com/notify",
+              "return_url": "https://www.example.com",
+              "cancel_url": "https://www.example.com",
+              "notify_url": "https://www.example.com",
               "accepted_pymt_type": "INSTANT",
               "skip_shipping_address": false,
               "immutable_shipping_address": true
@@ -130,6 +131,26 @@ class PaypalServices {
     }
   }
 
+  Future<dynamic> createBID(
+    String approvalUrl,
+    Map payload,
+    String accessToken,
+  ) async {
+    final response = await Dio().get(
+      approvalUrl,
+      data: payload,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json'
+        },
+      ),
+    );
+
+    final body = response.data;
+    return body;
+  }
+
   Future<Map> createPaypalPayment({
     String executeUrl = "",
     String accessToken = "",
@@ -154,8 +175,8 @@ class PaypalServices {
 
         String executeUrl = "";
         String approvalUrl = "";
-        final item = links.firstWhere((o) => o["rel"] == "approval_url",
-            orElse: () => null);
+        final item =
+            links.firstWhere((o) => o["rel"] == "self", orElse: () => null);
         if (item != null) {
           approvalUrl = item["href"];
         }
@@ -164,6 +185,9 @@ class PaypalServices {
         if (item1 != null) {
           executeUrl = item1["href"];
         }
+        print(executeUrl);
+        print("+++++++++");
+        print(approvalUrl);
         return {"executeUrl": executeUrl, "approvalUrl": approvalUrl};
       }
       return {};
@@ -206,3 +230,4 @@ class PaypalServices {
     }
   }
 }
+

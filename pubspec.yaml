@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   dio: ^5.3.3
+  event_bus: any
   flutter:
     sdk: flutter
   flutter_inappwebview: ^5.8.0

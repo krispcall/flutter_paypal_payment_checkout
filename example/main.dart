@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:event_bus/event_bus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_paypal_payment/flutter_paypal_payment.dart';
 
@@ -24,6 +25,8 @@ class PaypalPaymentDemo extends StatelessWidget {
                   sandboxMode: true,
                   clientId: "YOUR CLIENT ID",
                   secretKey: "YOUR SECRET KEY",
+                  eventBus: EventBus(),
+                  accessToken: "YOUR ACCESS TOKEN",
                   transactions: const [
                     {
                       "amount": {

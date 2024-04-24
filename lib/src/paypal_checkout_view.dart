@@ -1,16 +1,17 @@
 library flutter_paypal_checkout;
 
+import 'package:event_bus/event_bus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_paypal_payment/src/paypal_service.dart';
 
 class PaypalCheckoutView extends StatefulWidget {
   final Function onSuccess, onCancel, onError;
-  final String? note, clientId, secretKey;
-
+  final String? note, clientId, secretKey, accessToken;
   final Widget? loadingIndicator;
   final List? transactions;
   final bool? sandboxMode;
+  final EventBus? eventBus;
   const PaypalCheckoutView({
     Key? key,
     required this.onSuccess,
@@ -19,6 +20,8 @@ class PaypalCheckoutView extends StatefulWidget {
     required this.transactions,
     required this.clientId,
     required this.secretKey,
+    required this.accessToken,
+    required this.eventBus,
     this.sandboxMode = false,
     this.note = '',
     this.loadingIndicator,
@@ -42,8 +45,8 @@ class PaypalCheckoutViewState extends State<PaypalCheckoutView> {
   late PaypalServices services;
   int pressed = 0;
   double progress = 0;
-  final String returnURL = 'https://example.com/return';
-  final String cancelURL = 'https://example.com/cancel';
+  final String returnURL = 'https://www.example.com';
+  final String cancelURL = 'https://www.example.com';
 
   late InAppWebViewController webView;
 
@@ -65,18 +68,17 @@ class PaypalCheckoutViewState extends State<PaypalCheckoutView> {
     super.initState();
     Future.delayed(Duration.zero, () async {
       try {
-        Map getToken = await services.getAccessToken();
+        //Map getToken = await services.getAccessToken();
 
-        if (getToken['token'] != null) {
-          accessToken = getToken['token'];
+        if (widget.accessToken != null) {
+          accessToken = widget.accessToken!;
           final dump = await services.getApprovalURL(accessToken);
-          print(dump);
           checkoutUrl = dump["approvalUrl"];
           executeUrl = dump["executeUrl"];
           tokenId = dump["token_id"];
           setState(() {});
         } else {
-          widget.onError("${getToken['message']}");
+          widget.onError("Access Token is null $accessToken");
         }
       } catch (e) {
         widget.onError(e);
@@ -103,12 +105,20 @@ class PaypalCheckoutViewState extends State<PaypalCheckoutView> {
                 final url = navigationAction.request.url;
 
                 if (url.toString().contains(returnURL)) {
+                  //Navigator.of(context).pop();
+
                   final body = getTokenMap(tokenId);
                   final res = await services.createPaypalPayment(
                     executeUrl: executeUrl,
                     payload: body,
                     accessToken: accessToken,
                   );
+                  String approvalUrl = res["approvalUrl"];
+
+                  final bid =
+                      await services.createBID(approvalUrl, body, accessToken);
+                  widget.eventBus?.fire(bid);
+                  //widget.onSuccess(bid);
                   return NavigationActionPolicy.ALLOW;
                 }
                 if (url.toString().contains(cancelURL)) {
